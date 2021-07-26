@@ -1,7 +1,7 @@
 import { CreateCommentDto } from './dto/create-comment.dto';
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, ObjectId } from 'mongoose';
+import { Model, ObjectId, Schema } from 'mongoose';
 import { Track, TrackDocument } from './schemas/trach.schema';
 import { Comment, CommentDocument } from './schemas/comment.schema';
 import { CreateTrackDto } from './dto/create-track.dto';
@@ -12,8 +12,18 @@ export class TrackService {
     @InjectModel(Track.name) private trackModel: Model<TrackDocument>,
     @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
   ) {}
-  async create(dto: CreateTrackDto): Promise<Track> {
-    const track = await this.trackModel.create({ ...dto, listens: 0 });
+
+  async create(
+    dto: CreateTrackDto,
+    audioPath: string,
+    imagePath: string,
+  ): Promise<Track> {
+    const track = await this.trackModel.create({
+      ...dto,
+      listens: 0,
+      audio: audioPath,
+      picture: imagePath,
+    });
     return track;
   }
 
@@ -38,5 +48,16 @@ export class TrackService {
     track.comments.push(comment._id);
     await track.save();
     return comment;
+  }
+  async listen(id: Schema.Types.ObjectId): Promise<number> {
+    try {
+      const track = await this.trackModel.findById(id);
+
+      track.listens += 1;
+      await track.save();
+      return track.listens;
+    } catch (error) {
+      throw new HttpException('track not found', HttpStatus.NOT_FOUND);
+    }
   }
 }
